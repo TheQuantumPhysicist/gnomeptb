@@ -126,6 +126,7 @@ def get_data(workdir, cavity_subdir, comb_subdir, finished_subdir):
 
                 # move the files to the "finished" sub-directory
                 try:
+                    #TODO: Make sure it's not possible for one file to be moved without the other
                     shutil.move(comb_file_path, new_comb_file_path)
                     shutil.move(cavi_file_path, new_cavi_file_path)
                 except Exception as e:
