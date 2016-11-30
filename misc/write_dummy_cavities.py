@@ -22,20 +22,20 @@ i1=0
 delay = 0.001*1.1 # empirical correction factor to get approx 1 ms rate
 t1 = time.clock()
 before = dt.datetime.now()
-
-while i<1000*60*60*1:  # just one hour
-    now = dt.datetime.now()
+sr=1000
+write_now = dt.datetime.now()
+real_now = dt.datetime.now()
+while i<sr*60*60*1:  # just one hour
 
     #if i%1000==0:
-    if now.second != before.second:
-        t2 = time.clock()
-        print(str(t2-t1)+'   '+str(i-i1)+' points')
-        t1 = t2
-        i1 = i
-        before=now
-        s=format(now,'%y%m%d*%H%M%S.%f')[0:17]+sample[17:]
+    while (real_now - write_now).total_seconds() > 0:
+        time.sleep((real_now - write_now).total_seconds())
+    if i % sr == 0:
+        write_now += dt.timedelta(seconds=1 / sr)
+        s= format(write_now, '%y%m%d*%H%M%S.%f')[0:17] + sample[17:]
     else:
-        s=format(now,'%y%m%d %H%M%S.%f')[0:17]+sample[17:]
+        write_now += dt.timedelta(seconds=1 / sr)
+        s= format(write_now, '%y%m%d %H%M%S.%f')[0:17] + sample[17:]
     fout.write(s)
     i+=1
     fout.flush()
