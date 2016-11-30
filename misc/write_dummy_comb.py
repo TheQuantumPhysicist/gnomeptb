@@ -18,14 +18,19 @@ fout_name = format(dt.datetime.now(),'%y%m%d') + '_1_Frequ.txt'
 
 fout=open(outpath+fout_name,'w')
 i=0
-delay = 1.0
-tstart = time.clock
-
-while i<60*60*24: # max one day
-    s=format(dt.datetime.now(),'%y%m%d*%H%M%S.%f')[0:17]+sample[17:]
+i1=0
+sr=1
+write_now = dt.datetime.now()
+while i < sr*60*60*1:  # just one hour
+    real_now = dt.datetime.now()
+    if (write_now - real_now).total_seconds() > 0:
+        time.sleep((write_now - real_now).total_seconds())
+    if i % sr == 0:
+        write_now += dt.timedelta(seconds=1 / sr)
+        s = format(write_now, '%y%m%d*%H%M%S.%f')[0:17] + sample[17:]
+    else:
+        write_now += dt.timedelta(seconds=1 / sr)
+        s = format(write_now, '%y%m%d %H%M%S.%f')[0:17] + sample[17:]
     fout.write(s)
-    i+=1
-    if i%60==0:
-       print(s)
     fout.flush()
-    time.sleep(delay)
+    i += 1
