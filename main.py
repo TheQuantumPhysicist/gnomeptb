@@ -7,8 +7,8 @@ import time
 
 
 def main_function():
-    default_comb_regex = "^(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})(?P<sync>(\*|\s+))(?P<hour>\d{2})(?P<min>\d{2})(?P<sec>\d{2})(?:.)(?P<msec>\d+)[(?:\s+)](?P<flags>[A-Z]{8})(?:\s+)(?P<f1>\d+\.{0,1}\d*)(?:\s+)((?P<f2>\d+\.{0,1}\d*))(?:\s+)(?P<f3>\d+\.{0,1}\d*)(?:\s+)(?P<f4>\d+\.{0,1}\d*)(?:\s+)(?P<f5>\d+\.{0,1}\d*)(?:\s*)$"
-    default_cavity_regex = "^(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})(?P<sync>(\*|\s+))(?P<hour>\d{2})(?P<min>\d{2})(?P<sec>\d{2})(?:.)(?P<msec>\d+)[(?:\s+)](?:\s+)(?P<f1>\d+\.{0,1}\d*)(?:\s+)((?P<f2>\d+\.{0,1}\d*))(?:\s+)(?P<f3>\d+\.{0,1}\d*)(?:\s+)(?:\s*)$"
+    default_comb_regex = "^(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})(?P<sync>(\*|\s+))(?P<hour>\d{2})(?P<min>\d{2})(?P<sec>\d{2})(?:.)(?P<msec>\d+)[(?:\s+)](?P<flags>[A-Z]{8})(?:\s+)(?P<f1>\d+\.{0,1}\d*)(?:\s+)((?P<f2>\d+\.{0,1}\d*))(?:\s+)(?P<f3>\d+\.{0,1}\d*)(?:\s+)(?P<f4>\d+\.{0,1}\d*)(?:\s+)(?P<f5>\d+\.{0,1}\d*)(?:\s+)(?P<f6>\d+\.{0,1}\d*)(?:\s+)(?P<f7>\d+\.{0,1}\d*)(?:\s+)(?P<f8>\d+\.{0,1}\d*)(?:\s+)(?P<f9>\d+\.{0,1}\d*)(?:\s+)(?P<f10>\d+\.{0,1}\d*)(?:\s+)(?P<f11>\d+\.{0,1}\d*)(?:\s+)(?P<f12>\d+\.{0,1}\d*)(?:\s+)(?P<f13>\d+\.{0,1}\d*)(?:\s+)(?P<f14>\d+\.{0,1}\d*)(?:\s+)(?P<f15>\d+\.{0,1}\d*)(?:\s+)(?P<f16>\d+\.{0,1}\d*)(?:\s+)(?P<f17>\d+\.{0,1}\d*)(?:\s+)(?P<f18>\d+\.{0,1}\d*)(?:\s+)(?P<f19>\d+\.{0,1}\d*)(?:\s+)(?P<f20>\d+\.{0,1}\d*)(?:\s+)(?P<f21>\d+\.{0,1}\d*)(?:\s*)$"
+    default_cavity_regex = "^(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{2})(?P<sync>(\*|\s+))(?P<hour>\d{2})(?P<min>\d{2})(?P<sec>\d{2})(?:.)(?P<msec>\d+)(?:\s+)(?P<f1>\d+\.{0,1}\d*)(?:\s+)((?P<f2>\d+\.{0,1}\d*))(?:\s+)(?P<f3>\d+\.{0,1}\d*)(?:\s*)$"
 
     parser = argparse.ArgumentParser()
 
@@ -24,9 +24,13 @@ def main_function():
     finished_subdir = args.finishedsubdir
 
     ptb.LineData.set_decimal_precision(30)
+    col = ptb.DataCollection(args.cavityregex, args.combregex)
     for data_queues in ptb.get_data(args.workdir,args.cavitysubdir,args.combsubdir,finished_subdir):
         if not data_queues["empty"]:
-            print(data_queues)
+            # print(data_queues)
+            col.append_cavi_data(data_queues["cavi_queue"])
+            col.append_comb_data(data_queues["comb_queue"])
+            col.process_data()
 
         else:
             print("No new data found...")

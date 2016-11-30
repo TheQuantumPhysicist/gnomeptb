@@ -92,7 +92,6 @@ def get_data(workdir, cavity_subdir, comb_subdir, finished_subdir):
                 else:
                     cavi_queue.append(cavi_line.replace("\n", ""))
                     last_time = datetime.datetime.now()
-
             comb_queue = []
             # keep reading until no lines are found
             while True:
@@ -126,12 +125,18 @@ def get_data(workdir, cavity_subdir, comb_subdir, finished_subdir):
 
                 # move the files to the "finished" sub-directory
                 try:
-                    #TODO: Make sure it's not possible for one file to be moved without the other
-                    shutil.move(comb_file_path, new_comb_file_path)
-                    shutil.move(cavi_file_path, new_cavi_file_path)
+                    shutil.copy(comb_file_path, new_comb_file_path)
+                    shutil.copy(cavi_file_path, new_cavi_file_path)
                 except Exception as e:
                     # if the movement of the files failed, reopen them and try to read them further
-                    print_error("Unable to move file. Assuming the file is still being used. Exception says: " + str(e))
+                    try:
+                        os.remove(new_comb_file_path)
+                        os.remove(new_cavi_file_path)
+                    except:
+                        pass
+
+                    print_error("Unable to copy files after having read them. "
+                                "Assuming the file is still being used. Exception says: " + str(e))
                     fcomb = open(comb_file_path)
                     fcavi = open(cavi_file_path)
 
@@ -140,16 +145,30 @@ def get_data(workdir, cavity_subdir, comb_subdir, finished_subdir):
                     fcavi.seek(fcavi_ptr)
                     continue
 
+                try:
+                    os.remove(comb_file_path)
+                    os.remove(cavi_file_path)
+
+                except Exception as e:
+                    print_error("SEVERE ERROR: Unable to delete files after having read them. This is very dangerous, "
+                                "as it may lead to the file being read more than once. Exception says: " + str(e))
+                    raise
+
+
                 # break to read the next file
                 break
 
 
-def tail_line(file):        # read last line, closes file and returns, if file is no longer the newest one
-    line = file.readline()
+def tail_line(file):
+    """
+        read last line, closes file and returns, if file is no longer the newest one
+    :param file: file object
+    :return:  yields the line that was read from the file
+    """
     while True:
         where = file.tell()  # get current pointer position
         line = file.readline()
-        if not line or line[-1] != '\n':  # if no line is found OR the line doesn't end with \n
+        if not line or line[-1] != '\n':  # if no line is found OR the line doesn't end with \n (so, incomplete line)
             time.sleep(10e-3)
             file.seek(where)
             yield None
@@ -176,9 +195,13 @@ class DataCollection:
     """
     A class that takes lines of data, and processes them and writes them to HDF5 files
     """
-    def __init__(self):
+    def __init__(self, cavi_regex_str, comb_regex_str):
         self.comb_queue = []
         self.cavi_queue = []
+        self.comb_processed_queue = []
+        self.cavi_processed_queue = []
+        self.cavi_line_data = LineData(cavi_regex_str)
+        self.comb_line_data = LineData(comb_regex_str)
 
     def append_comb_data(self, data):
         if type(data) == list:
@@ -194,11 +217,88 @@ class DataCollection:
         else:
             self.cavi_queue.append(data)
 
-    def _verify_comb_data(self):
-        pass
+    def process_data(self):
 
-    def _verify_cavi_data(self):
-        pass
+        # parse lines in the queue
+        self.comb_queue = [s.replace("\r", "").replace("\n", "") for s in self.comb_queue]
+        self.cavi_queue = [s.replace("\r", "").replace("\n", "") for s in self.cavi_queue]
+        self.comb_queue = list(filter(None, self.comb_queue))
+        self.cavi_queue = list(filter(None, self.cavi_queue))
+
+        parsed_comb_data = [0]*len(self.comb_queue)
+        parsed_cavi_data = [0]*len(self.cavi_queue)
+        for i in range(len(self.comb_queue)):
+            try:
+                self.comb_line_data.parse_line(self.comb_queue[i])
+                parsed_comb_data[i] = copy.copy(self.comb_line_data)
+            except re.error as e:
+                print_error(str(e))
+                parsed_comb_data[i] = LineData()
+
+        for i in range(len(self.cavi_queue)):
+            try:
+                self.cavi_line_data.parse_line(self.cavi_queue[i])
+                parsed_cavi_data[i] = copy.copy(self.cavi_line_data)
+            except re.error as e:
+                print_error(str(e))
+                parsed_cavi_data[i] = LineData()
+
+        self.comb_processed_queue.extend(parsed_comb_data)
+        self.cavi_processed_queue.extend(parsed_cavi_data)
+        self.comb_queue = []
+        self.cavi_queue = []
+
+        while True:
+            # remove data until next sync point
+            cavi_sync_point_batch_begin = None
+            for i in range(len(self.cavi_processed_queue)):
+                if self.cavi_processed_queue[i].success:
+                    # print(self.cavi_processed_queue[i])
+                    if self.cavi_processed_queue[i].sync:
+                        cavi_sync_point_batch_begin = i
+                        break
+
+            if cavi_sync_point_batch_begin is None:
+                return
+            else:
+                self.cavi_processed_queue = self.cavi_processed_queue[cavi_sync_point_batch_begin:]
+                cavi_sync_point_batch_begin = 0
+
+            # after having found a first sync point, find the next one
+            cavi_sync_point_batch_end = None
+            for i in range(cavi_sync_point_batch_begin+1, len(self.cavi_processed_queue)):
+                if self.cavi_processed_queue[i].success:
+                    if self.cavi_processed_queue[i].sync:
+                        cavi_sync_point_batch_end = i
+                        break
+            if cavi_sync_point_batch_end is None:
+                return
+            # print([cavi_sync_point_batch_begin,cavi_sync_point_batch_end])
+            # print(self.cavi_processed_queue[cavi_sync_point_batch_begin].time,self.cavi_processed_queue[cavi_sync_point_batch_end].time)
+            # print(self.cavi_processed_queue[cavi_sync_point_batch_begin].time)
+            # print(self.cavi_processed_queue[cavi_sync_point_batch_end+1].time)
+            comb_sync_point_batch_begin = None
+            comb_sync_point_batch_end = None
+            found_comb_begin = False
+            for i in range(len(self.comb_processed_queue)):
+                if self.comb_processed_queue[i].success:
+                    if self.comb_processed_queue[i].time >= self.cavi_processed_queue[cavi_sync_point_batch_begin].time:
+                        comb_sync_point_batch_begin = i
+                        found_comb_begin = True
+                        break
+            if found_comb_begin:
+                for i in range(comb_sync_point_batch_begin + 1, len(self.comb_processed_queue)):
+                    if self.comb_processed_queue[i].success:
+                        if self.comb_processed_queue[i].time > self.cavi_processed_queue[cavi_sync_point_batch_end].time:
+                            comb_sync_point_batch_end = i
+                            break
+
+            print(self.comb_processed_queue[comb_sync_point_batch_begin].time)
+            print(self.comb_processed_queue[comb_sync_point_batch_end + 1].time)
+
+
+            del self.cavi_processed_queue[cavi_sync_point_batch_begin:cavi_sync_point_batch_end]
+            input()
 
 
 class LineData:
@@ -299,14 +399,17 @@ class LineData:
         # this next line object is non-copyable! be careful when copying this class!
         self.match_obj = self.regex_comp.match(line)
         if self.match_obj == None:
-            raise re.error("Failure while parsing line: " + line + ". Apparently it doesn't comply to the regex provided.")
+            raise re.error("Failure while parsing line: " + line + " as expression of the form " + self.regex_str + ". Apparently it doesn't comply to the regex provided.")
         if self.match_obj.group("sync") == "*":
             self.sync = True
         else:
             self.sync = False
 
     def _parse_status_bits(self):
-        self.status_bits = list(self.match_obj.group(LineData.key_flags))
+        try:
+            self.status_bits = list(self.match_obj.group(LineData.key_flags))
+        except IndexError:
+            self.status_bits = ""
 
     def _parse_date_from_parsed_line(self):
         p = self.match_obj
@@ -344,9 +447,13 @@ class LineData:
         Convert the data of the object to a string (helps in printing)
         :return:
         """
-        return str({"DateTime: ": str(self.time),
-                    "Sync: ": self.sync,
-                    "Parsed string": str(self.regex_comp.findall(self.line_str)),
-                    "Data: ": str(self.data),
-                    "Status bits: ": str(self.status_bits),
-                    "Regex Str": str(self.regex_str)})
+        if self.success:
+            return str({"DateTime: ": str(self.time),
+                        "Line: ": self.line_str,
+                        "Sync: ": self.sync,
+                        "Parsed string": str(self.regex_comp.findall(self.line_str)),
+                        "Data: ": str(self.data),
+                        "Status bits: ": str(self.status_bits),
+                        "Regex Str": str(self.regex_str)})
+        else:
+            return "<No parsed data>"
