@@ -45,10 +45,6 @@ def main_function():
             print("No new data found...")
             time.sleep(1)
 
-    regex_exp_comb = args.combregex
-    regex_exp_cavi = args.cavityregex
-
-
 if __name__ == '__main__':
     main_function()
     sys.exit(0)
