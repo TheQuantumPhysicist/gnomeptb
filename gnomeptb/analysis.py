@@ -466,6 +466,7 @@ class SingleFileData:
         hdf5file_obj.attrs["LocalFileCreationTime"] = str(dt.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S_UTC"))
         hdf5file_obj.attrs["DefaultDataset"] = SingleFileData.cavi_dataset_name
         hdf5file_obj.attrs["DefaultMainEquation"] = "<None>"
+        hdf5file_obj.attrs["DefaultMainEquationVersion"] = "1.0"
 
 
 
