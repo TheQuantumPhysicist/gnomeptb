@@ -464,6 +464,9 @@ class SingleFileData:
 
         hdf5file_obj.attrs["WriterVersion"] = __version__
         hdf5file_obj.attrs["LocalFileCreationTime"] = str(dt.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S_UTC"))
+        hdf5file_obj.attrs["DefaultDataset"] = SingleFileData.cavi_dataset_name
+        hdf5file_obj.attrs["DefaultMainEquation"] = "<None>"
+
 
 
         cavi_ds = hdf5file_obj.create_dataset(SingleFileData.cavi_dataset_name, data=cavi_data,
