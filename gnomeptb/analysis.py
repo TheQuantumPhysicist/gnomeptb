@@ -21,7 +21,6 @@ decimal.getcontext().prec = 30
 comb_columns_to_include = [1, 2, 3, 4, 5, 6]
 cavi_columns_to_include = [0, 1, 2]
 
-
 def print_error(err):
     sys.stderr.write(str(err) + "\n")
     sys.stderr.flush()
@@ -82,6 +81,8 @@ def get_data(workdir, cavity_subdir, comb_subdir, finished_subdir, max_queue_siz
         # open the files
         fcomb = open(comb_file_path)
         fcavi = open(cavi_file_path)
+        print("File open:", comb_file_path)
+        print("File open:", cavi_file_path)
 
         # time to wait, before giving up that no new data will be added to the current file
         timeout_recheck_new_files = 30
@@ -291,6 +292,8 @@ class DataCollection:
             # print(self.cavi_processed_queue[cavi_sync_point_batch_begin].time,self.cavi_processed_queue[cavi_sync_point_batch_end].time)
             # print(self.cavi_processed_queue[cavi_sync_point_batch_begin].time)
             # print(self.cavi_processed_queue[cavi_sync_point_batch_end+1].time)
+
+            # seek points in comb data that correspond to cavity data
             comb_sync_point_batch_begin = None
             comb_sync_point_batch_end = None
             comb_sync_point_batch_range = []
@@ -306,11 +309,15 @@ class DataCollection:
             # if no corresponding points in time were found in comb data, return
             # (so that more data can be brought next time)
             if len(comb_sync_point_batch_range) == 0:
+                # if there are 60 seconds of comb data, delete the cavity data as no match of it will be found
+                # this is necessary in case cavity data recording started before comb data
+                if len(self.comb_processed_queue) > 60*SingleFileData.comb_sample_rate:
+                    del self.cavi_processed_queue[cavi_sync_point_batch_begin:cavi_sync_point_batch_end]
+                    self.process_data()
                 return
             else:
                 comb_sync_point_batch_begin = comb_sync_point_batch_range[0]
                 comb_sync_point_batch_end = comb_sync_point_batch_range[-1]+1
-
             # print(cavi_sync_point_batch_begin, cavi_sync_point_batch_end)
             # print(comb_sync_point_batch_begin, comb_sync_point_batch_end)
             # print(self.cavi_processed_queue[cavi_sync_point_batch_begin].time, self.comb_processed_queue[comb_sync_point_batch_begin].time)
@@ -342,13 +349,18 @@ class SingleFileData:
     cavi_dataset_name = "CavitiesData"
     comb_dataset_name = "CombData"
     attr_data_format = "AtomicClockData_PTB"
-    f_dateFormat = "%Y/%m/%dF"
+    f_dateFormat = "%Y/%m/%d"
     f_timeFormat = "%H:%M:%S.%f"
     comb_sample_rate = 1
     cavi_sample_rate = 1000
     Longitude = 10.461654
     Altitude = 78
     Latitude = 52.296052
+    MainEquation = None
+
+    @staticmethod
+    def SetMainEquations(eq):
+        SingleFileData.MainEquation = eq
 
     @staticmethod
     def create_normalized_list(input_list, to_include_list, prec=4, to_type=np.float64):
@@ -424,6 +436,10 @@ class SingleFileData:
             return True
 
     def write_to_file(self):
+        if SingleFileData.MainEquation is None:
+            print_error("MainEquation is not set. Use SingleFileData.SetMainEquations(value) to set it. Exiting...")
+            exit(2)
+
         year   = self.all_data["cavi_data"][0].time.strftime('%Y')
         month  = self.all_data["cavi_data"][0].time.strftime('%m')
         day    = self.all_data["cavi_data"][0].time.strftime('%d')
@@ -464,9 +480,11 @@ class SingleFileData:
 
         hdf5file_obj.attrs["WriterVersion"] = __version__
         hdf5file_obj.attrs["LocalFileCreationTime"] = str(dt.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S_UTC"))
+        hdf5file_obj.attrs["DataModel"] = "AtomicClocks_PTB"
         hdf5file_obj.attrs["DefaultDataset"] = SingleFileData.cavi_dataset_name
-        hdf5file_obj.attrs["DefaultMainEquation"] = "<None>"
+        hdf5file_obj.attrs["DefaultMainEquation"] = "MainEquation"
         hdf5file_obj.attrs["DefaultMainEquationVersion"] = "1.0"
+        hdf5file_obj.attrs["DefaultMainEquationVarName"] = "Cavities frequencies"
 
 
 
@@ -501,6 +519,8 @@ class SingleFileData:
         comb_ds.attrs["MissingPoints"] = np.int32(self.max_batches*self.comb_sample_rate - len(comb_data))
         for i in range(len(comb_offsets)):
             comb_ds.attrs["Offset_column_"+str(i)] = comb_offsets[i]
+
+        hdf5file_obj[SingleFileData.cavi_dataset_name].attrs["MainEquation"] = SingleFileData.MainEquation
 
         hdf5file_obj.close()
         print("Done writing file: " + file_path)

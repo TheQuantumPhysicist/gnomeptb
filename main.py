@@ -22,12 +22,11 @@ def main_function():
     parser.add_argument("-sn", "--stationname", dest="stationname", default="ptb01", help="Station name")
     parser.add_argument("-ca", "--cavicolumns", dest="cavicolumns", default="[0, 1, 2]", help="Cavities data columns to include in the output data file")
     parser.add_argument("-cm", "--combcolumns", dest="combcolumns", default="[1, 2, 3, 4, 5, 6]", help="Comb data columns to include in the output data file")
-
+    parser.add_argument("-eq", "--equations", dest="equations", default='CombData[[1]]+CavitiesData[[0]]/2["First Var",Hz]::CombData[[3]]+CavitiesData[[0]]/2["Second Var",Hz]', help="Main Equation to embed in the HDF5 file")
 
     args = parser.parse_args()
 
-    finished_subdir = args.finishedsubdir
-
+    ptb.SingleFileData.SetMainEquations(args.equations)
     # columns to include in the output file
     ptb.cavi_columns_to_include = ast.literal_eval(args.cavicolumns)
     ptb.comb_columns_to_include = ast.literal_eval(args.combcolumns)
