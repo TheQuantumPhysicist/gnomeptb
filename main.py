@@ -26,6 +26,8 @@ def main_function():
 
     args = parser.parse_args()
 
+    # args.outputdir = "D:/gnomeclock/"
+
     ptb.SingleFileData.SetMainEquations(args.equations)
     # columns to include in the output file
     ptb.cavi_columns_to_include = ast.literal_eval(args.cavicolumns)
