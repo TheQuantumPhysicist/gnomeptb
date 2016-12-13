@@ -26,15 +26,15 @@ with_flags = True
 def fout_name(currdate):
     return os.path.join(outpath,format(currdate,'%y%m%d') + '_1_Frequ.txt')
 
-fout = open(fout_name(dt.datetime.now()),'w')
+fout = open(fout_name(dt.datetime.utcnow()),'w')
 i = 0
 sr = 1
-start_time = dt.datetime.now()
+start_time = dt.datetime.utcnow()
 write_now = start_time
 prev_write_now = start_time
 f = 0.07  # frequency of the signal
 while True:
-    real_now = dt.datetime.now()
+    real_now = dt.datetime.utcnow()
     t = (write_now - start_time).total_seconds()
     data = np.array(['{:.20f}'.format(np.float64(i+1)*np.sin(2*math.pi*f*t)) for i in range(num_columns)])
     data_str = str(data).replace("[", "").replace("]", "").replace("'", "").replace("\n", "") + "\n"
