@@ -448,7 +448,7 @@ class SingleFileData:
         second = self.all_data["cavi_data"][0].time.strftime('%S')
 
         out_dir = os.path.join(self.data_output_dir, year, month, day)
-        file_name = self.station_name + "_" + hour + minute + second + ".h5"
+        file_name = self.station_name + "_" + year + month + day + "_" + hour + minute + second + ".h5"
         file_path = os.path.join(out_dir, file_name)
         mkdir_p(out_dir)
 
